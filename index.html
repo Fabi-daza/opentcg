@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>One Piece - Cartas traducidas</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 30px auto;
+      max-width: 1000px;
+    }
+    .grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+    .card-thumb {
+      border: 1px solid #ccc;
+      padding: 6px;
+      width: 140px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .card-thumb img {
+      width: 100%;
+      height: auto;
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0; top: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0,0,0,0.6);
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background-color: white;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 800px;
+      width: 95%;
+      position: relative;
+      display: flex;
+      gap: 20px;
+    }
+
+    .modal-content img {
+      max-width: 300px;
+      height: auto;
+    }
+
+    .info {
+      overflow-y: auto;
+    }
+
+    .label {
+      font-weight: bold;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 10px; right: 15px;
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    select, input[type="text"] {
+      margin-bottom: 20px;
+      padding: 5px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Busca tu carta</h1>
+<input type="text" id="search-input" placeholder="Buscar por nombre o código" style="width: 300px; margin-right: 10px;">
+<select id="expansion-select"></select>
+
+<div class="grid" id="card-grid"></div>
+
+<!-- Modal -->
+<div id="card-modal" class="modal">
+  <div class="modal-content">
+    <span class="close-btn" onclick="closeModal()">✖</span>
+    <img id="modal-img" src="" alt="" />
+    <div class="info">
+      <h2 id="modal-name"></h2>
+      <p><span class="label">Categoría:</span> <span id="modal-category"></span></p>
+      <p><span class="label">Rareza:</span> <span id="modal-rarity"></span></p>
+      <p><span class="label">Coste:</span> <span id="modal-cost"></span></p>
+      <p><span class="label">Poder:</span> <span id="modal-power"></span></p>
+      <p><span class="label">Color:</span> <span id="modal-color"></span></p>
+      <p><span class="label">Tipo:</span> <span id="modal-type"></span></p>
+      <p><span class="label">Efecto (EN):</span><br> <span id="modal-effect"></span></p>
+      <p><span class="label">Efecto (ES):</span><br> <span id="modal-effect-es"></span></p>
+      <p><span class="label">Trigger (EN):</span> <span id="modal-trigger"></span></p>
+      <p><span class="label">Trigger (ES):</span> <span id="modal-trigger-es"></span></p>
+    </div>
+  </div>
+</div>
+
+<script>
+let allCards = [];
+
+fetch("optcg_cards.json")
+  .then(res => res.json())
+  .then(data => {
+    allCards = data;
+    const codes = [...new Set(data.map(c => c["CARD ID"]?.[0]).filter(Boolean))].sort();
+    const select = document.getElementById("expansion-select");
+
+    codes.forEach(code => {
+      const option = document.createElement("option");
+      option.value = code;
+      option.textContent = code;
+      select.appendChild(option);
+    });
+
+    select.value = codes[0];
+    filterByCode(codes[0]);
+
+    select.addEventListener("change", () => {
+      filterByCode(select.value);
+    });
+
+    document.getElementById("search-input").addEventListener("input", function () {
+      const query = this.value.toLowerCase().trim();
+      if (query) {
+        const filtered = allCards.filter(card =>
+          (card["Card Name"] || "").toLowerCase().includes(query) ||
+          (card.Key || "").toLowerCase().includes(query)
+        );
+        renderThumbnails(filtered);
+      } else {
+        filterByCode(select.value);
+      }
+    });
+  });
+
+function filterByCode(code) {
+  const filtered = allCards.filter(c => c["CARD ID"]?.[0] === code);
+  renderThumbnails(filtered);
+}
+
+function renderThumbnails(cards) {
+  const grid = document.getElementById("card-grid");
+  grid.innerHTML = "";
+
+  cards.forEach(card => {
+    const div = document.createElement("div");
+    div.className = "card-thumb";
+    div.innerHTML = `
+      <img src="${card.image_url}" alt="${card['Card Name']}" />
+      <div>${card["Card Name"]}</div>
+    `;
+    div.addEventListener("click", () => openModal(card));
+    grid.appendChild(div);
+  });
+}
+
+function openModal(card) {
+  document.getElementById("modal-img").src = card.image_url;
+  document.getElementById("modal-name").textContent = `${card["Card Name"]} (${card.Key})`;
+  document.getElementById("modal-category").textContent = card.Category || "-";
+  document.getElementById("modal-rarity").textContent = card.Rarity || "-";
+  document.getElementById("modal-cost").textContent = card.Cost?.Generic ?? "-";
+  document.getElementById("modal-power").textContent = card.Power || "-";
+  document.getElementById("modal-color").textContent = (card.Color || []).join(", ");
+  document.getElementById("modal-type").textContent = (card.Type || []).join(", ");
+  document.getElementById("modal-effect").textContent = card.Effect || "-";
+  document.getElementById("modal-effect-es").textContent = card.Effect_ES || "-";
+  document.getElementById("modal-trigger").textContent = card.Trigger || "-";
+  document.getElementById("modal-trigger-es").textContent = card.Trigger_ES || "-";
+
+  document.getElementById("card-modal").style.display = "flex";
+}
+
+function closeModal() {
+  document.getElementById("card-modal").style.display = "none";
+}
+
+window.onclick = function(event) {
+  const modal = document.getElementById("card-modal");
+  if (event.target === modal) {
+    closeModal();
+  }
+}
+</script>
+
+</body>
+</html>
